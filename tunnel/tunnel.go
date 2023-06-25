@@ -3,6 +3,7 @@ package tunnel
 import (
 	"context"
 	"fmt"
+	"github.com/Dreamacro/clash/tunnel/history"
 	"net"
 	"net/netip"
 	"runtime"
@@ -365,6 +366,8 @@ func handleTCPConn(connCtx C.ConnContext) {
 			metadata.RemoteAddress(),
 		)
 	}
+
+	history.Add(proxy, metadata)
 
 	handleSocket(connCtx, remoteConn)
 }
