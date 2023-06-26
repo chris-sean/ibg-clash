@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var cache = make(map[string]struct{}, 100)
+var cache = make(map[string]time.Time, 100)
 var cacheLock = sync.Mutex{}
 
 func Add(proxy constant.Proxy, metadata *constant.Metadata) {
@@ -17,7 +17,10 @@ func Add(proxy constant.Proxy, metadata *constant.Metadata) {
 
 	cacheLock.Lock()
 	defer cacheLock.Unlock()
-	cache[metadata.Host] = struct{}{}
+	if _, ok := cache[metadata.Host]; ok {
+		return
+	}
+	cache[metadata.Host] = time.Now()
 }
 
 func init() {
@@ -44,5 +47,5 @@ func uploadHistory() {
 
 	// do upload
 
-	cache = make(map[string]struct{}, 100)
+	cache = make(map[string]time.Time, 100)
 }
