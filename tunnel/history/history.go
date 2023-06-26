@@ -2,11 +2,12 @@ package history
 
 import (
 	"github.com/Dreamacro/clash/constant"
+	"github.com/Dreamacro/clash/log"
 	"sync"
 	"time"
 )
 
-var cache = map[string]struct{}{}
+var cache = make(map[string]struct{}, 100)
 var cacheLock = sync.Mutex{}
 
 func Add(proxy constant.Proxy, metadata *constant.Metadata) {
@@ -17,7 +18,6 @@ func Add(proxy constant.Proxy, metadata *constant.Metadata) {
 	cacheLock.Lock()
 	defer cacheLock.Unlock()
 	cache[metadata.Host] = struct{}{}
-	//fmt.Printf("HISTORY %#v\n", metadata)
 }
 
 func init() {
@@ -31,10 +31,18 @@ func init() {
 
 func uploadHistory() {
 	cacheLock.Lock()
-	defer cacheLock.Unlock()
+	defer func() {
+		cacheLock.Unlock()
+		if err := recover(); err != nil {
+			log.Warnln("[uploadHistory] failed: %v", err)
+		}
+	}()
 
 	if len(cache) == 0 {
 		return
 	}
 
+	// do upload
+
+	cache = make(map[string]struct{}, 100)
 }
