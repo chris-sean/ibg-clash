@@ -21,10 +21,12 @@ func Add(proxy constant.Proxy, metadata *constant.Metadata) {
 		return
 	}
 
-	now := time.Now().UTC()
-	cacheLock.Lock()
-	defer cacheLock.Unlock()
-	cache[metadata.Host] = now
+	if len(metadata.Host) > 0 {
+		now := time.Now().UTC()
+		cacheLock.Lock()
+		defer cacheLock.Unlock()
+		cache[metadata.Host] = now
+	}
 }
 
 func init() {
