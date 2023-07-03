@@ -1,13 +1,19 @@
 package history
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"github.com/Dreamacro/clash/constant"
 	"github.com/Dreamacro/clash/log"
+	"github.com/Dreamacro/clash/win"
+	"net/http"
 	"sync"
 	"time"
 )
 
-var cache = make(map[string]struct{}, 100)
+var APIAddress string
+var cache = make(map[string]time.Time, 100)
 var cacheLock = sync.Mutex{}
 
 func Add(proxy constant.Proxy, metadata *constant.Metadata) {
@@ -15,9 +21,10 @@ func Add(proxy constant.Proxy, metadata *constant.Metadata) {
 		return
 	}
 
+	now := time.Now().UTC()
 	cacheLock.Lock()
 	defer cacheLock.Unlock()
-	cache[metadata.Host] = struct{}{}
+	cache[metadata.Host] = now
 }
 
 func init() {
@@ -43,6 +50,50 @@ func uploadHistory() {
 	}
 
 	// do upload
+	log.Infoln("cache len %d:", len(cache))
+	err := upload()
+	if err != nil {
+		log.Errorln("upload record err: %v:", err)
+	}
 
-	cache = make(map[string]struct{}, 100)
+	cache = make(map[string]time.Time, 100)
+}
+
+// Record 上网行为记录
+type Record struct {
+	MachineId     string    `json:"machine_id"`
+	RecordType    int       `json:"record_type"`
+	TriggerTime   time.Time `json:"trigger_time"`
+	BehaviorValue string    `json:"behavior_value"` // 网站访问url
+}
+
+const RecordType = 1 // 上网记录上报
+
+func upload() error {
+	records := make([]Record, len(cache))
+	i := 0
+	for url, time := range cache {
+		record := Record{
+			MachineId:     win.MachineId,
+			RecordType:    RecordType,
+			TriggerTime:   time,
+			BehaviorValue: url,
+		}
+
+		records[i] = record
+		i++
+	}
+
+	record := make(map[string]interface{})
+	record["machine_id"] = win.MachineId
+	record["records"] = records
+	bytesData, _ := json.Marshal(record)
+
+	_, err := http.Post(
+		fmt.Sprintf("%v%v", APIAddress, constant.UploadUrl),
+		"application/json;charset=utf-8",
+		bytes.NewBuffer(bytesData),
+	)
+
+	return err
 }
