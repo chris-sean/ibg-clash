@@ -3,10 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/Dreamacro/clash/tunnel/history"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 
 	"github.com/Dreamacro/clash/config"
@@ -23,6 +25,7 @@ var (
 	version            bool
 	testConfig         bool
 	homeDir            string
+	env                string
 	configFile         string
 	externalUI         string
 	externalController string
@@ -31,6 +34,7 @@ var (
 
 func init() {
 	flag.StringVar(&homeDir, "d", "", "set configuration directory")
+	flag.StringVar(&env, "e", "test", "set api env")
 	flag.StringVar(&configFile, "f", "", "specify configuration file")
 	flag.StringVar(&externalUI, "ext-ui", "", "override external ui directory")
 	flag.StringVar(&externalController, "ext-ctl", "", "override external controller address")
@@ -58,6 +62,20 @@ func main() {
 			homeDir = filepath.Join(currentDir, homeDir)
 		}
 		C.SetHomeDir(homeDir)
+	}
+
+	// 后端服务api环境
+	if env != "" {
+		switch strings.ToLower(env) {
+		case "dev":
+			history.APIAddress = C.ServerAddressDev
+		case "test":
+			history.APIAddress = C.ServerAddressTest
+		case "prod":
+			history.APIAddress = C.ServerAddressProd
+		default:
+			log.Errorln("invalid env: %v", env)
+		}
 	}
 
 	if configFile != "" {
