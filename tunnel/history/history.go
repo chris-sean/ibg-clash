@@ -24,10 +24,12 @@ func Add(proxy constant.Proxy, metadata *constant.Metadata) {
 
 	// 过滤后台服务域名
 	if len(metadata.Host) > 0 && !slices.Contains(constant.ServerAPIDomains, metadata.Host) {
-		now := time.Now().UTC()
-		cacheLock.Lock()
-		defer cacheLock.Unlock()
-		cache[metadata.Host] = now
+		if _, ok := cache[metadata.Host]; !ok {
+			now := time.Now().UTC()
+			cacheLock.Lock()
+			defer cacheLock.Unlock()
+			cache[metadata.Host] = now
+		}
 	}
 }
 
