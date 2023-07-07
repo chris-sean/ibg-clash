@@ -35,7 +35,7 @@ func init() {
 	go func() {
 		for {
 			uploadHistory()
-			time.Sleep(time.Minute)
+			time.Sleep(time.Minute * 5)
 		}
 	}()
 }
