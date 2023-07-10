@@ -7,6 +7,7 @@ import (
 	"github.com/Dreamacro/clash/constant"
 	"github.com/Dreamacro/clash/log"
 	"github.com/Dreamacro/clash/win"
+	"golang.org/x/exp/slices"
 	"net/http"
 	"sync"
 	"time"
@@ -21,11 +22,14 @@ func Add(proxy constant.Proxy, metadata *constant.Metadata) {
 		return
 	}
 
-	if len(metadata.Host) > 0 {
-		now := time.Now().UTC()
-		cacheLock.Lock()
-		defer cacheLock.Unlock()
-		cache[metadata.Host] = now
+	// 过滤后台服务域名
+	if len(metadata.Host) > 0 && !slices.Contains(constant.ServerAPIDomains, metadata.Host) {
+		if _, ok := cache[metadata.Host]; !ok {
+			now := time.Now().UTC()
+			cacheLock.Lock()
+			defer cacheLock.Unlock()
+			cache[metadata.Host] = now
+		}
 	}
 }
 
@@ -33,7 +37,7 @@ func init() {
 	go func() {
 		for {
 			uploadHistory()
-			time.Sleep(time.Minute)
+			time.Sleep(time.Minute * 5)
 		}
 	}()
 }
