@@ -14,8 +14,12 @@ import (
 )
 
 var APIAddress string
-var cache = make(map[string]time.Time, 100)
+var cache = make(map[string]time.Time, 1000)
+var uploadCache = make(map[string]time.Time, 100)
 var cacheLock = sync.Mutex{}
+
+const uploadInterval = 5 * time.Minute
+const dupTime = 30 * time.Minute
 
 func Add(proxy constant.Proxy, metadata *constant.Metadata) {
 	if proxy.Type() == constant.Reject {
@@ -23,12 +27,17 @@ func Add(proxy constant.Proxy, metadata *constant.Metadata) {
 	}
 
 	// 过滤后台服务域名
+	now := time.Now().UTC()
 	if len(metadata.Host) > 0 && !slices.Contains(constant.ServerAPIDomains, metadata.Host) {
-		if _, ok := cache[metadata.Host]; !ok {
-			now := time.Now().UTC()
+		if t, ok := cache[metadata.Host]; ok && now.Sub(t) < dupTime {
+			//fmt.Printf("%v is dup in %v\n", metadata.Host, dupTime)
+			// do not cache record in dupMin minutes
+		} else {
+			//fmt.Printf("!!!%v\n", metadata.Host)
 			cacheLock.Lock()
 			defer cacheLock.Unlock()
 			cache[metadata.Host] = now
+			uploadCache[metadata.Host] = now
 		}
 	}
 }
@@ -37,7 +46,7 @@ func init() {
 	go func() {
 		for {
 			uploadHistory()
-			time.Sleep(time.Minute * 5)
+			time.Sleep(uploadInterval)
 		}
 	}()
 }
@@ -51,18 +60,19 @@ func uploadHistory() {
 		}
 	}()
 
-	if len(cache) == 0 {
+	if len(uploadCache) == 0 {
 		return
 	}
 
 	// do upload
-	log.Infoln("cache len %d:", len(cache))
+	log.Infoln("cache len %d:", len(uploadCache))
+
 	err := upload()
 	if err != nil {
 		log.Errorln("upload record err: %v:", err)
 	}
 
-	cache = make(map[string]time.Time, 100)
+	uploadCache = make(map[string]time.Time, 100)
 }
 
 // Record 上网行为记录
@@ -76,13 +86,13 @@ type Record struct {
 const RecordType = 1 // 上网记录上报
 
 func upload() error {
-	records := make([]Record, len(cache))
+	records := make([]Record, len(uploadCache))
 	i := 0
-	for url, time := range cache {
+	for url, t := range uploadCache {
 		record := Record{
 			MachineId:     win.MachineId,
 			RecordType:    RecordType,
-			TriggerTime:   time,
+			TriggerTime:   t,
 			BehaviorValue: url,
 		}
 
