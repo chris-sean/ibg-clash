@@ -9,6 +9,7 @@ import (
 	"github.com/Dreamacro/clash/win"
 	"golang.org/x/exp/slices"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 )
@@ -99,6 +100,10 @@ func upload() error {
 		records[i] = record
 		i++
 	}
+
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].TriggerTime.Before(records[j].TriggerTime)
+	})
 
 	record := make(map[string]interface{})
 	record["machine_id"] = win.MachineId
